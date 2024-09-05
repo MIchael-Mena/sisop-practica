@@ -1,0 +1,20 @@
+Paquetes necesarios para sistemas operativos:
+
+sudo apt install make git gdb clang clang-format \
+	libbsd-dev gcc-multilib libc6-dev linux-libc-dev
+	
+y docker para poder correr los test.
+
+------------------------------------------
+
+· Si se ejecuta el comando de abajo en la terminal de vscode siempre abra 8 fds (files descriptor) abierto, si se lo ejecuta en una terminal comun solo abra 3 fds que son de la propia terminal que se esta ejecutando
+make && valgrind --track-fds=yes ./primes 20
+valgrind --track-fds=yes --leak-check=full seq 10 | ./xargs /bin/echo
+
+· Para compilar un archivo .c :
+	gcc mi_archivo.c -o mi_archivo_comp
+· Para ejecutar el programa (desde el directorio donde este el archivo compilado, ambos pueden tener el mismo nombre):
+	./mi_archivo_comp
+
+· ctrl + d = end of file
+
