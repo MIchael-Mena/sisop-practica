@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <string.h>
+#include <sys/wait.h>
 
 // interfaz: $ ./xargs <comando>
 // donde comando es un binario que no recibe argumentos extras (como por ejemplo ls o echo).
@@ -14,97 +15,107 @@
 // Si no se define NARGS, se asume que el número de argumentos es 4
 // Se puede cambiar el valor de NARGS al compilar con -DNARGS=valor (es una macro)
 
-int main(int argc, char *argv[])
+void remove_newline(char *str)
 {
-  char *args[NARGS];
-
-  char *line = NULL; // Puntero inicializado a NULL
-  size_t len = 0;    // Tamaño inicial del buffer
-  size_t read;       // Número de caracteres leídos
-
-  char *newline = strchr(argv[1], '\n');
+  char *newline = strchr(str, '\n');
   if (newline)
   {
     *newline = '\0';
   }
+}
 
-  int i = 0;
-  args[i] = argv[1];
-  i++;
-  while (i < NARGS && getline(&line, &len, stdin) != -1)
+// , char *line)
+void execute_command(char *args[], char *line)
+{
+  pid_t pid = fork();
+
+  if (pid < 0)
   {
-    // line es puntero a un char que se va reasignando en cada iteración
-    newline = strchr(line, '\n'); // Devuelve un puntero al primer caracter '\n' encontrado en la cadena
-    if (newline)
-    {
-      *newline = '\0';
-    }
-
-    args[i] = strdup(line);
-    i++;
-
-    if (i == NARGS)
-    {
-      args[i] = NULL;
-
-      pid_t pid = fork();
-
-      if (pid < 0)
-      {
-        perror("fork");
-        exit(EXIT_FAILURE);
-      }
-      else if (pid == 0)
-      {
-        // Hijo
-        free(line);                    // Liberar la memoria asignada por getline
-        if (execvp(argv[1], args) < 0) // reemplaza la imagen del proceso actual con una nueva imagen de proceso
-        {
-          // Liberar la memoria duplicada, solo si execvp falla
-          // ya que si no falla, el proceso hijo se reemplaza por el nuevo proceso
-          for (int j = 0; j < i; j++)
-          {
-            free(args[j]);
-          }
-          exit(EXIT_FAILURE);
-        }
-      }
-      else
-      {
-        // Padre
-        wait(NULL);
-        // Liberar la memoria duplicada, REVISAR
-        for (int j = 0; j < i; j++)
-        {
-          free(args[j]);
-        }
-        i = 0;
-
-        // exit(EXIT_SUCCESS);
-      }
-    }
+    perror("fork");
+    exit(EXIT_FAILURE);
   }
-  // args[i] = NULL;
-  free(line); // Liberar la memoria asignada por getline
-
-  /*   pid_t pid = fork();
-
-    if (pid < 0)
+  else if (pid == 0)
+  {
+    // Hijo
+    // Se llama a execvp que cambia la imagen del proceso actual con una nueva imagen de proceso
+    // execvp recibe el nombre del programa a ejecutar y un arreglo de strings con los argumentos
+    if (execvp(args[0], args) < 0)
     {
-      perror("fork");
+      // Libero la memoria pedida solo si execvp falla ya que el proceso hijo se reemplaza
+      // por el nuevo proceso (incluyendo el stack, heap, etc, excepto el PID y los file descriptors)
+      for (int j = 1; args[j] != NULL; j++)
+      {
+        free(args[j]);
+      }
+      free(line);
+      perror("execvp");
       exit(EXIT_FAILURE);
     }
-    else if (pid == 0)
+  }
+  else
+  {
+    // Padre
+    wait(NULL);
+    for (int j = 1; args[j] != NULL; j++)
     {
-      // Hijo
-      execvp(argv[1], args);
+      free(args[j]);
+      args[j] = NULL; // Asegurarse de que los punteros no apunten a memoria liberada
+    }
+  }
+}
+
+void read_and_execute_commands(char *args[])
+{
+  char *line = NULL;
+  size_t len = 0;
+  ssize_t read;
+  int i = 1; // El primer argumento ya está ocupado por el comando
+
+  // Itero mientras no se llegue al final del archivo
+  while ((read = getline(&line, &len, stdin)) != -1)
+  {
+    remove_newline(line); // Eliminar el carácter de nueva línea de la línea leída
+
+    args[i] = strdup(line); // Duplica la cadena line y la asigna a args[i]
+
+    // Empaquetar los NARGS argumentos o si se llego al final del archivo quedando menos de NARGS argumentos
+    if (i == NARGS)
+    {
+      i++;
+      args[i] = NULL; // Marcar el final de los argumentos
+      execute_command(args, line);
+      i = 1;
     }
     else
     {
-      // Padre
-      wait(NULL);
-      exit(EXIT_SUCCESS);
-    } */
+      i++;
+    }
+  }
+
+  if (i > 1)
+  {
+    args[i] = NULL; // Marcar el final de los argumentos
+    execute_command(args, line);
+  }
+
+  free(line); // Liberar la memoria asignada por getline (solo el padre llega a este punto)
+}
+
+int main(int argc, char *argv[])
+{
+  // Verificar que se haya pasado un argumento
+  if (argc < 2)
+  {
+    fprintf(stderr, "Uso: %s <comando>\n", argv[0]);
+    exit(EXIT_FAILURE);
+  }
+
+  remove_newline(argv[1]); // Eliminar el carácter de nueva línea del argumento
+
+  char *args[NARGS + 2]; // +2 espacios, uno para el comando y otro el NULL final
+  args[0] = argv[1];
+
+  read_and_execute_commands(args);
 
   return 0;
 }

@@ -15,7 +15,7 @@ void filter(int fd_in)
   if (res == 0)
   {
     close(fd_in);
-    exit(EXIT_SUCCESS); // Termina todo la aplicación
+    exit(EXIT_SUCCESS); // Termina todo la aplicación (el proceso actual y sus hijos)
   }
   else if (res < 0)
   {
@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
     close(fds[READ]); // Cierro el extremo de lectura
     for (int i = 2; i <= n; i++)
     {
-      // Los pipe son bloqueantes por lo que no se pasarán al siguiente número hasta que el hijo haya leído el anterior
+      // Los pipe son bloqueantes por lo que no se pasara al siguiente número hasta que el hijo haya leído el anterior
       write(fds[WRITE], &i, sizeof(i));
     }
     close(fds[WRITE]); // Cierro el extremo de escritura
