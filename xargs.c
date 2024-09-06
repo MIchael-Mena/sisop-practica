@@ -6,7 +6,11 @@
 #include <sys/wait.h>
 
 // interfaz: $ ./xargs <comando>
-// donde comando es un binario que no recibe argumentos extras (como por ejemplo ls o echo).
+// Donde comando es un binario que no recibe argumentos extras (como por ejemplo ls o echo).
+// Ejemplo de uso: $ seq 9 | ./xargs echo
+// salida esperada: 1 2 3 4
+//                  5 6 7 8
+//                  9
 
 // NARGS es el número de argumentos que se pasan a la función execvp
 #ifndef NARGS
@@ -24,10 +28,18 @@ void remove_newline(char *str)
   }
 }
 
-// , char *line)
+void free_args(char *args[])
+{
+  for (int i = 1; args[i] != NULL; i++)
+  {
+    free(args[i]);
+    args[i] = NULL;
+  }
+}
+
 void execute_command(char *args[], char *line)
 {
-  pid_t pid = fork();
+  pid_t pid = fork(); // Crear un nuevo proceso
 
   if (pid < 0)
   {
@@ -43,10 +55,7 @@ void execute_command(char *args[], char *line)
     {
       // Libero la memoria pedida solo si execvp falla ya que el proceso hijo se reemplaza
       // por el nuevo proceso (incluyendo el stack, heap, etc, excepto el PID y los file descriptors)
-      for (int j = 1; args[j] != NULL; j++)
-      {
-        free(args[j]);
-      }
+      free_args(args);
       free(line);
       perror("execvp");
       exit(EXIT_FAILURE);
@@ -56,11 +65,7 @@ void execute_command(char *args[], char *line)
   {
     // Padre
     wait(NULL);
-    for (int j = 1; args[j] != NULL; j++)
-    {
-      free(args[j]);
-      args[j] = NULL; // Asegurarse de que los punteros no apunten a memoria liberada
-    }
+    free_args(args);
   }
 }
 
@@ -68,17 +73,16 @@ void read_and_execute_commands(char *args[])
 {
   char *line = NULL;
   size_t len = 0;
-  ssize_t read;
   int i = 1; // El primer argumento ya está ocupado por el comando
 
   // Itero mientras no se llegue al final del archivo
-  while ((read = getline(&line, &len, stdin)) != -1)
+  while (getline(&line, &len, stdin) != -1)
   {
     remove_newline(line); // Eliminar el carácter de nueva línea de la línea leída
 
     args[i] = strdup(line); // Duplica la cadena line y la asigna a args[i]
 
-    // Empaquetar los NARGS argumentos o si se llego al final del archivo quedando menos de NARGS argumentos
+    // Empaquetar los NARGS argumentos y ejecutar el comando
     if (i == NARGS)
     {
       i++;
@@ -92,9 +96,10 @@ void read_and_execute_commands(char *args[])
     }
   }
 
+  // Si quedan argumentos por ejecutar
   if (i > 1)
   {
-    args[i] = NULL; // Marcar el final de los argumentos
+    args[i] = NULL;
     execute_command(args, line);
   }
 
@@ -110,7 +115,7 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  remove_newline(argv[1]); // Eliminar el carácter de nueva línea del argumento
+  remove_newline(argv[1]); // Eliminar el carácter de nueva línea del comando
 
   char *args[NARGS + 2]; // +2 espacios, uno para el comando y otro el NULL final
   args[0] = argv[1];
