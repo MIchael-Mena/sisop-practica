@@ -51,7 +51,11 @@ void filter(int fd_in)
     { // Si read retorna 0 significa que el pipe está cerrado
       if (b % a != 0)
       { // Si el número no es divisible por el primo actual lo envío al siguiente pipe
-        write(fds_filter[WRITE], &b, sizeof(b));
+        if (write(fds_filter[WRITE], &b, sizeof(b)) < 0)
+        {
+          perror("write filter");
+          exit(EXIT_FAILURE);
+        }
       }
     }
     close(fds_filter[WRITE]);
@@ -71,7 +75,7 @@ long validate_and_convert_args(int argc, char *argv[])
   {
     fprintf(stderr, "Modo de uso: %s <number>\n", argv[0]); // stderr es el canal de error
     // return 1; // Solo termina la función actual, si se usara despues de un fork, el proceso hijo seguiría ejecutándose
-    exit(EXIT_FAILURE);
+    exit(EXIT_FAILURE); // Termina el proceso actual, mas fuerte que return
   }
   // int n = atoi(argv[1]); // atoi no maneja errores
   char *endptr;
@@ -118,7 +122,11 @@ int main(int argc, char *argv[])
     for (int i = 2; i <= n; i++)
     {
       // Los pipe son bloqueantes por lo que no se pasara al siguiente número hasta que el hijo haya leído el anterior
-      write(fds[WRITE], &i, sizeof(i));
+      if (write(fds[WRITE], &i, sizeof(i)) < 0)
+      {
+        perror("write main");
+        exit(EXIT_FAILURE);
+      }
     }
     close(fds[WRITE]); // Cierro el extremo de escritura
     wait(NULL);        // Espero a que el hijo termine
