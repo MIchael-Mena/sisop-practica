@@ -96,11 +96,7 @@ void read_and_execute_commands(char *args[])
     }
   }
 
-<<<<<<< HEAD
-  // Si quedaron argumentos sin empaquetar, ejecutar el comando con los argumentos restantes
-=======
   // Si quedan argumentos por ejecutar
->>>>>>> 55abc0e1be920c0e80b58cf212ccb2e43bc50f21
   if (i > 1)
   {
     args[i] = NULL;
