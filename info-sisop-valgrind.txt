@@ -18,3 +18,10 @@ valgrind --track-fds=yes --leak-check=full seq 10 | ./xargs /bin/echo
 
 · ctrl + d = end of file
 
+-----------------------------------------
+
+Para debugger con gdb pones
+set follow-fork-mode
+Y despues pones parent o child
+En parent deja que el child corra sin impedimentos, en child hace que el parent corra sin impedimentos y gdb cambia a debuggear el child
+
