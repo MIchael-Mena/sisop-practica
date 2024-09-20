@@ -41,7 +41,7 @@ void execute_command(char *args[], char *line)
     // execvp recibe el nombre del programa a ejecutar y un arreglo de strings con los argumentos
     if (execvp(args[0], args) < 0)
     {
-      // Libero la memoria pedida solo si execvp falla ya que el proceso hijo se reemplaza
+      // Libero la memoria pedida solo si execvp falla ya que en caso de exito el proceso hijo se reemplaza
       // por el nuevo proceso (incluyendo el stack, heap, etc, excepto el PID y los file descriptors)
       for (int j = 1; args[j] != NULL; j++)
       {
@@ -92,6 +92,7 @@ void read_and_execute_commands(char *args[])
     }
   }
 
+  // Si quedaron argumentos sin empaquetar, ejecutar el comando con los argumentos restantes
   if (i > 1)
   {
     args[i] = NULL; // Marcar el final de los argumentos
