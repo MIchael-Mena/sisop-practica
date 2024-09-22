@@ -8,32 +8,34 @@
 #define READ 0  // file descriptor de lectura
 #define WRITE 1 // file descriptor de escritura
 
+void verify_error(int res, const char *msg)
+{
+  if (res < 0)
+  {
+    perror(msg);
+    exit(EXIT_FAILURE);
+  }
+}
+
 void filter(int fd_in)
 {
-  int a;
-  int res = read(fd_in, &a, sizeof(a));
+  int a = 0, res = 0;
+  // int res = read(fd_in, &a, sizeof(a));
+  verify_error(res = read(fd_in, &a, sizeof(a)), "read filter");
   if (res == 0)
   {
     close(fd_in);
     exit(EXIT_SUCCESS); // Termina todo la aplicación (el proceso actual y sus hijos)
-  }
-  else if (res < 0)
-  {
-    perror("read");
-    exit(EXIT_FAILURE);
   }
 
   printf("primo: %d\n", a);
   // fflush(stdout); // Si se ejecuta en docker, se debe usar esta función para que se imprima en pantalla
 
   int fds_filter[2];
-  if (pipe(fds_filter) < 0)
-  {
-    perror("filter pipe");
-    exit(EXIT_FAILURE);
-  }
+  verify_error(pipe(fds_filter), "filter pipe");
 
-  pid_t pid_filter = fork();
+  pid_t pid_filter = 0;
+  verify_error(pid_filter = fork(), "filter fork");
 
   if (pid_filter == 0)
   {
@@ -62,18 +64,16 @@ void filter(int fd_in)
     close(fd_in);
     wait(NULL); // Espero a que el hijo termine
   }
-  else
-  {
-    perror("filter fork");
-    exit(EXIT_FAILURE);
-  }
 }
 
 long validate_and_convert_args(int argc, char *argv[])
 {
-  if (argc < 2)
+  if (argc != 2)
   {
     fprintf(stderr, "Modo de uso: %s <number>\n", argv[0]); // stderr es el canal de error
+    // Se usa fprintf para poder imprimir en stderr, ya que printf imprime en stdout
+    // si el error fuera generado por alguna syscall lo mejor seria usar perror ya que errno tendría el
+    // valor correspondiente al error generado (en este caso es mejor usar fprintf)
     // return 1; // Solo termina la función actual, si se usara despues de un fork, el proceso hijo seguiría ejecutándose
     exit(EXIT_FAILURE); // Termina el proceso actual, mas fuerte que return
   }
@@ -101,13 +101,10 @@ int main(int argc, char *argv[])
   long n = validate_and_convert_args(argc, argv);
 
   int fds[2];
-  if (pipe(fds) < 0)
-  {
-    perror("main pipe");
-    exit(EXIT_FAILURE);
-  }
+  verify_error(pipe(fds), "main pipe");
 
-  pid_t pid = fork();
+  pid_t pid = 0;
+  verify_error(pid = fork(), "main fork");
 
   if (pid == 0)
   {
@@ -130,11 +127,6 @@ int main(int argc, char *argv[])
     }
     close(fds[WRITE]); // Cierro el extremo de escritura
     wait(NULL);        // Espero a que el hijo termine
-  }
-  else
-  {
-    perror("main fork");
-    exit(EXIT_FAILURE);
   }
   return 0; // La función main debe retornar un entero
 }

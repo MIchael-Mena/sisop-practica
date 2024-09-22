@@ -5,12 +5,14 @@
 #include <string.h>
 #include <sys/wait.h>
 
-// interfaz: $ ./xargs <comando>
-// Donde comando es un binario que no recibe argumentos extras (como por ejemplo ls o echo).
-// Ejemplo de uso: $ seq 9 | ./xargs echo
-// salida esperada: 1 2 3 4
-//                  5 6 7 8
-//                  9
+/*
+interfaz: $ ./xargs <comando>
+Donde comando es un binario que no recibe argumentos extras (como por ejemplo ls o echo).
+Ejemplo de uso: $ seq 9 | ./xargs echo
+salida esperada: 1 2 3 4
+                 5 6 7 8
+                 9
+ */
 
 // NARGS es el número de argumentos que se pasan a la función execvp
 #ifndef NARGS
@@ -21,11 +23,19 @@
 
 void remove_newline(char *str)
 {
-  char *newline = strchr(str, '\n');
-  if (newline)
+  // Remueve el último caracter '\n' encontrado en la cadena str
+  size_t len = strlen(str);
+  if (len > 0 && str[len - 1] == '\n')
   {
-    *newline = '\0';
+    str[len - 1] = '\0';
   }
+
+  // Remueve el primer caracter '\n' encontrado en la cadena str
+  /*   char *newline = strchr(str, '\n');
+    if (newline)
+    {
+      *newline = '\0';
+    } */
 }
 
 void free_args(char *args[])
@@ -35,6 +45,20 @@ void free_args(char *args[])
     free(args[i]);
     args[i] = NULL;
   }
+}
+
+char *safe_strdup(const char *line, char *args[])
+{
+  char *dup = strdup(line); // Duplica la cadena line y la asigna a args[i]
+  if (dup == NULL)
+  {
+    perror("strdup");
+    // Liberar la memoria previamente asignada antes de salir
+    free_args(args);
+    free(line);
+    exit(EXIT_FAILURE);
+  }
+  return dup;
 }
 
 void execute_command(char *args[], char *line)
@@ -80,7 +104,7 @@ void read_and_execute_commands(char *args[])
   {
     remove_newline(line); // Eliminar el carácter de nueva línea de la línea leída
 
-    args[i] = strdup(line); // Duplica la cadena line y la asigna a args[i]
+    args[i] = safe_strdup(line, args);
 
     // Empaquetar los NARGS argumentos y ejecutar el comando
     if (i == NARGS)
